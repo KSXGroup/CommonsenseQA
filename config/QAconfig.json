@@ -1,6 +1,11 @@
 {
   "train": {
-
+    "batch_size": 32,
+    "weight_decay": 0.01,
+    "lr": 1e-4,
+    "lr_decay": 0.9,
+    "warm_up_proportion": 0.1,
+    "epoch": 50
   },
   "encoder": {
     "embedding_size": 128,

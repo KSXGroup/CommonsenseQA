@@ -1,7 +1,8 @@
 import collections
 import json
-
-import tokenization
+import argparse
+from . import tokenization
+import pickle
 
 #create ReCoRD dataset
 
@@ -85,6 +86,7 @@ def read_record_examples(input_file, is_training):
     i = 0
     for entry in input_data:
         i = i + 1
+        print("\rreading data %d\t" % i , end='')
         paragraph = entry["passage"]
         paragraph_text = paragraph["text"]
         doc_tokens = []
@@ -131,6 +133,7 @@ def read_record_examples(input_file, is_training):
                 end_position=end_position,
             )
             examples.append(example)
+    print()
     return examples
 
 
@@ -141,6 +144,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
     """Loads a data file into a list of `InputBatch`s."""
     unique_id = 1000000000
     for (example_index, example) in enumerate(examples):
+        print("\rconverting %d\t" % example_index, end='')
         query_tokens = tokenizer.tokenize(example.question_text)
         if len(query_tokens) > max_query_length:
             query_tokens = query_tokens[0:max_query_length]
@@ -249,6 +253,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
                 end_position=end_position)
             unique_id += 1
             feature_list.append(feature)
+    print()
     return feature_list
 
 
@@ -320,14 +325,23 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
     return cur_span_index == best_span_index
 
 
-if __name__ == '__main__':
-    """
-    The pathe of the input file.
-    """
-    input_file = "dataset/record/dev.json"
-    """
-    The path of the vacabulary
-    """
-    tokenizer = tokenization.SentencePieceTokenizer("vocab.model")
+def main(args):
+    vocab_model = args.vocab_model
+    input_file = args.input_file
+    tokenizer = tokenization.SentencePieceTokenizer(vocab_model)
     examples = read_record_examples(input_file, True)
+    print("example read finish")
     feature = convert_examples_to_features(examples, tokenizer, 512, 512, 256, True)
+    with open(args.save_path,  "wb") as f:
+        pickle.dump(feature, f)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_file", default="dataset/record/train.json", type=str)
+    parser.add_argument("--vocab_model", default="vocab.model", type=str)
+    parser.add_argument("--save_path", default="dataset/record/train.pkl", type=str)
+    args = parser.parse_args()
+    main(args)
+
+
+
