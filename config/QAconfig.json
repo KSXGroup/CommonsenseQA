@@ -1,0 +1,20 @@
+{
+  "train": {
+
+  },
+  "encoder": {
+    "embedding_size": 128,
+    "hidden_size": 384,
+    "hidden_layer": 4,
+    "attention_head": 12,
+    "intermediate_size": 1536,
+    "max_sequence_length": 512,
+    "vocab_size": 32000,
+    "layer_norm_eps": 1e-12,
+    "output_all_hidden": false,
+    "share_type": "shared_attention"
+  },
+  "decoder": {
+    "num_label": 2
+  }
+}

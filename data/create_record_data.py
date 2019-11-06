@@ -116,8 +116,6 @@ def read_record_examples(input_file, is_training):
         for qa in entry["qas"]:
             qas_id = qa["id"]
             question_text = qa["query"]
-            start_position = None
-            end_position = None
             answer = qa["answers"][0]
             orig_answer_text = answer["text"]
             start_position = char_to_word_offset[answer['start']]
