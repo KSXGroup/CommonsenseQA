@@ -1,16 +1,16 @@
 {
   "train": {
     "batch_size": 32,
-    "weight_decay": 0.01,
-    "lr": 1e-4,
+    "weight_decay": 0.0,
+    "lr": 1e-3,
     "lr_decay": 0.9,
-    "warm_up_proportion": 0.1,
+    "warm_up_proportion": 0,
     "epoch": 50
   },
   "encoder": {
     "embedding_size": 128,
     "hidden_size": 384,
-    "hidden_layer": 4,
+    "hidden_layer": 1,
     "attention_head": 12,
     "intermediate_size": 1536,
     "max_sequence_length": 512,
