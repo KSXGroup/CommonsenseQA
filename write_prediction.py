@@ -41,7 +41,7 @@ def main(args):
 
     model = torch.load(args.model_path)
     pos_ids = torch.tensor(np.arange(data.tokens.shape[1]), dtype=torch.int64, device=data.tokens.device)
-    start_pos_output, end_pos_output = model.forward(data.tokens, data.seg_ids, data.pos_ids, data.masks)
+    start_pos_output, end_pos_output = model.forward(data.tokens, data.seg_ids, pos_ids, data.masks)
 
     print('answer is:%s'%(passage_text[start_pos_output,end_pos_output]))
 
