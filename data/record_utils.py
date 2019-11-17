@@ -304,7 +304,7 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
                 orig_tokens = example.doc_tokens[orig_doc_start:(orig_doc_end + 1)]
                 print("tok_tokens: " + str(tok_tokens))
                 print("origin_tokens: " + str(orig_tokens))
-                tok_text = ' '.join(tok_tokens).replace(tokenizer.SPIECE_UNDERLINE, '').strip()
+                tok_text = ''.join(tok_tokens).replace(tokenizer.SPIECE_UNDERLINE, ' ').strip()
                 #tok_text = tokenizer.convert_tokens_to_string(tok_tokens)
 
                 # Clean whitespace
