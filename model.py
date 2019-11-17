@@ -17,5 +17,3 @@ class QAModel(nn.Module):
         start = output[0]
         end = output[1]
         return (start, end)
-
-

@@ -133,7 +133,6 @@ def read_record_examples(input_file, is_training):
                 end_position=end_position,
             )
             examples.append(example)
-    print()
     return examples
 
 
@@ -331,15 +330,21 @@ def main(args):
     tokenizer = tokenization.SentencePieceTokenizer(vocab_model)
     examples = read_record_examples(input_file, True)
     print("example read finish")
+    with open(args.save_path + args.file_name + "_example.pkl", "wb") as f:
+        pickle.dump(examples, f)
+
     feature = convert_examples_to_features(examples, tokenizer, 512, 512, 256, True)
-    with open(args.save_path,  "wb") as f:
+
+    with open(args.save_path + args.file_name + "_feature.pkl", "wb") as f:
         pickle.dump(feature, f)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_file", default="dataset/record/train.json", type=str)
     parser.add_argument("--vocab_model", default="vocab.model", type=str)
-    parser.add_argument("--save_path", default="dataset/record/train.pkl", type=str)
+    parser.add_argument("--save_path", default="dataset/record/", type=str)
+    parser.add_argument("--file_name", default="train", type=str)
     args = parser.parse_args()
     main(args)
 

@@ -4,9 +4,10 @@ import torch
 import numpy as np
 from torch.nn import CrossEntropyLoss
 from data.create_record_data import InputFeatures
-from data.record_utils import load_record_dataset, load_record_devset, QADataset, RawResult
+from data.tokenization import SentencePieceTokenizer
+from data.record_utils import load_record_dataset, load_record_devset, write_predictions, QADataset, RawResult
 from ALBERT.train.optimizer import AdamW, WarmupLinearSchedule
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from model import QAModel
 
 PRINT_EVERY = 50 # BATCH
@@ -17,6 +18,7 @@ def main(args):
     train_config = config["train"]
     encoder_config = config["encoder"]
     decoder_config = config["decoder"]
+    prediction_config = config["prediction"]
     model = QAModel(encoder_config, decoder_config)
     device = torch.device('cuda:3')
     model.to(device)
@@ -71,8 +73,9 @@ def main(args):
     def evaluate(model: QAModel, dev_path: str, encoder_config: dict, train_config: dict):
         print("======================START EVALUATION======================")
         model.eval()
-        dev, dev_features = load_record_devset(dev_path, encoder_config["max_sequence_length"])
-        devloader = DataLoader(dataset=dev, sampler=RandomSampler(dev),
+        dev, dev_features, dev_examples = load_record_devset(dev_path, encoder_config["max_sequence_length"])
+        tokenizer = SentencePieceTokenizer(args.vocab_model)
+        devloader = DataLoader(dataset=dev, sampler=SequentialSampler(dev),
                                batch_size=train_config["batch_size"], num_workers=4)
         example_index_list = []
         start_list = []
@@ -95,6 +98,10 @@ def main(args):
                 start_logits=start_list[i],
                 end_logits=end_list[i]
             ))
+
+        write_predictions(dev_examples, dev_features, all_results, prediction_config["nbest"],
+                          prediction_config["max_answer_length"], prediction_config["do_lower_case"],
+                          args.prediction_file, args.nbest_file ,None, False, tokenizer, 0)
 #======================================================================================================================
     for epoch in range(train_config["epoch"]):
         cnt = 0
@@ -124,9 +131,11 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_file", default="config/QAconfig.json", type=str)
-    parser.add_argument("--train_file", default="data/dataset/record/train.pkl", type=str)
-    parser.add_argument("--dev_file", default="data/dataset/record/dev.pkl", type=str)
+    parser.add_argument("--train_file", default="data/dataset/record/", type=str)
+    parser.add_argument("--dev_file", default="data/dataset/record/", type=str)
     parser.add_argument("--prediction_file", default="result/prediction.json", type=str)
+    parser.add_argument("--nbest_file", default="result/nbest.json", type=str)
+    parser.add_argument("--vocab_model", default="data/vocab.model", type=str)
     parser.add_argument("--is_training", default=True, type=bool)
     args = parser.parse_args()
     main(args)

@@ -22,5 +22,10 @@
   },
   "decoder": {
     "num_label": 2
+  },
+  "prediction": {
+    "max_answer_length": 30,
+    "do_lower_case": true,
+    "nbest": 5
   }
 }
