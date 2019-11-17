@@ -131,12 +131,11 @@ def get_final_text(pred_text, orig_text, do_lower_case, verbose_logging=False):
     tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
 
     tok_text = " ".join(tokenizer.tokenize(orig_text))
-
     start_position = tok_text.find(pred_text)
     if start_position == -1:
         if verbose_logging:
             print(
-                "Unable to find text: '%s' in '%s'" % (pred_text, orig_text))
+                "Unable to find text: '%s' in '%s'" % (pred_text, tok_text))
         return orig_text
     end_position = start_position + len(pred_text) - 1
 
@@ -303,7 +302,10 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
                 orig_doc_start = feature.token_to_orig_map[pred.start_index]
                 orig_doc_end = feature.token_to_orig_map[pred.end_index]
                 orig_tokens = example.doc_tokens[orig_doc_start:(orig_doc_end + 1)]
-                tok_text = tokenizer.convert_tokens_to_string(tok_tokens)
+                print("tok_tokens: " + str(tok_tokens))
+                print("origin_tokens: " + str(orig_tokens))
+                tok_text = ' '.join(tok_tokens).replace(tokenizer.SPIECE_UNDERLINE, '').strip()
+                #tok_text = tokenizer.convert_tokens_to_string(tok_tokens)
 
                 # Clean whitespace
                 tok_text = tok_text.strip()

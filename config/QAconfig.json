@@ -6,7 +6,7 @@
     "lr": 1e-3,
     "lr_decay": 0.9,
     "warm_up_proportion": 0,
-    "epoch": 50
+    "epoch": 0
   },
   "encoder": {
     "embedding_size": 128,
@@ -25,7 +25,7 @@
   },
   "prediction": {
     "max_answer_length": 30,
-    "do_lower_case": true,
+    "do_lower_case": false,
     "nbest": 5
   }
 }
