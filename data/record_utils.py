@@ -2,10 +2,9 @@
 
 import torch
 import pickle
-import numpy as np
 import collections
 import json
-import math
+import numpy as np
 from typing import List
 from .create_record_data import InputFeatures, RecordExample
 from torch.utils.data.dataset import Dataset
@@ -25,7 +24,7 @@ class QADataset(Dataset):
         self.seg_ids = np.zeros((self.length, seq_len), dtype=np.bool)
         self.start_positions = np.zeros((self.length,), dtype=np.int32)
         self.end_positions = np.zeros((self.length, ), dtype=np.int32)
-        self.example_index = np.zeros((self.length, ), dtype=np.int32)
+        self.unique_id = np.zeros((self.length, ), dtype=np.int32)
 
         print("loading %d features" % self.length)
 
@@ -34,9 +33,17 @@ class QADataset(Dataset):
             self.tokens[i] = feature.input_ids
             self.masks[i] = feature.input_mask
             self.seg_ids[i] = feature.segment_ids
-            self.start_positions[i] = feature.start_position
-            self.end_positions[i] = feature.end_position
-            self.example_index[i] = feature.example_index
+            if feature.start_position != None:
+                self.start_positions[i] = feature.start_position
+            else:
+                self.start_positions[i] = -1
+
+            if feature.end_position != None:
+                self.end_positions[i] = feature.end_position
+            else:
+                self.end_positions[i] = -1
+
+            self.unique_id[i] = int(feature.unique_id)
         print()
 
     def __len__(self):
@@ -48,7 +55,7 @@ class QADataset(Dataset):
                 torch.tensor(self.seg_ids[item], dtype=torch.int64),
                 torch.tensor(self.start_positions[item], dtype=torch.int64),
                 torch.tensor(self.end_positions[item], dtype=torch.int64),
-                self.example_index[item])
+                self.unique_id[item])
 
 class RawResult:
     def __init__(self, unique_id:int, start_logits, end_logits):
@@ -69,6 +76,9 @@ def load_record_devset(path:str, max_len:int) -> (QADataset, List[InputFeatures]
         feature_list = pickle.load(f)
     with open(path + DEV + EXAMPLE + PKL, "rb") as f:
         example_list = pickle.load(f)
+    print(len(feature_list))
+    print(len(example_list))
+    #input("========================WAITING=========================")
     return QADataset(feature_list, max_len), feature_list, example_list
 
 
@@ -116,8 +126,9 @@ def get_final_text(pred_text, orig_text, do_lower_case, verbose_logging=False):
     def _strip_spaces(text):
         ns_chars = []
         ns_to_s_map = collections.OrderedDict()
+        illegal_set = {" ", "\xc2\xa0", '\xa0', '\xad', '\u200e', '\u202c'}
         for (i, c) in enumerate(text):
-            if c == " " or c == "\xc2\xa0" or c == '\xa0' or c == '\xad':
+            if c in illegal_set:
                 continue
             ns_to_s_map[len(ns_chars)] = i
             ns_chars.append(c)
@@ -173,7 +184,8 @@ def get_final_text(pred_text, orig_text, do_lower_case, verbose_logging=False):
 
     if orig_end_position is None:
         if verbose_logging:
-            print("Couldn't map end position")
+            print(""
+                  "Couldn't map end position")
         return orig_text
 
     output_text = orig_text[orig_start_position:(orig_end_position + 1)]
@@ -193,7 +205,7 @@ def _compute_softmax(scores):
     exp_scores = []
     total_sum = 0.0
     for score in scores:
-        x = math.exp(score - max_score)
+        x = np.exp(score - max_score)
         exp_scores.append(x)
         total_sum += x
 
@@ -217,6 +229,7 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
 
     unique_id_to_result = {}
     for result in all_results:
+        #print(result.unique_id)
         unique_id_to_result[result.unique_id] = result
 
     _PrelimPrediction = collections.namedtuple(  # pylint: disable=invalid-name
@@ -365,9 +378,9 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
         for (i, entry) in enumerate(nbest):
             output = collections.OrderedDict()
             output["text"] = entry.text
-            output["probability"] = probs[i]
-            output["start_logit"] = entry.start_logit
-            output["end_logit"] = entry.end_logit
+            output["probability"] = float(probs[i])
+            output["start_logit"] = float(entry.start_logit)
+            output["end_logit"] = float(entry.end_logit)
             nbest_json.append(output)
 
         assert len(nbest_json) >= 1

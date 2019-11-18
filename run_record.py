@@ -26,14 +26,19 @@ def main(args):
     model.to(device)
     #print(list(model.named_parameters()))
     #return
-    train, eval = load_record_dataset(args.train_file, encoder_config["max_sequence_length"],
-                                      train_config["train_proportion"])
+    #train, eval = load_record_dataset(args.train_file, encoder_config["max_sequence_length"],
+    #                                  train_config["train_proportion"])
+    train = None
+    eval = None
+    #trainloader = DataLoader(dataset=train, sampler= RandomSampler(train),
+    #                        batch_size=train_config["batch_size"], num_workers=4)
 
-    trainloader = DataLoader(dataset=train, sampler= RandomSampler(train),
-                            batch_size=train_config["batch_size"], num_workers=4)
+    #evalloader = DataLoader(dataset=eval, sampler=RandomSampler(eval),
+    #                        batch_size=train_config["batch_size"], num_workers=4)
 
-    evalloader = DataLoader(dataset=eval, sampler=RandomSampler(eval),
-                            batch_size=train_config["batch_size"], num_workers=4)
+    trainloader = None
+
+    evalloader = None
 
     param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'layer_norm.bias', 'layer_norm.weight']
@@ -45,7 +50,9 @@ def main(args):
     model.train()
 
 
-    total_steps = int(len(train) / train_config["batch_size"]) * train_config["epoch"]
+    #total_steps = int(len(train) / train_config["batch_size"]) * train_config["epoch"]
+
+    total_steps = 0
 
     print("total steps %d" % total_steps)
 
@@ -58,8 +65,8 @@ def main(args):
     end_loss_function = CrossEntropyLoss()
 #======================================================================================================================
 
-    def process_data(i, batch):
-        (tokens, masks, seg_ids, start_postions, end_positions, example_index) = tuple(x for x in batch)
+    def process_data(i, batch, is_training):
+        (tokens, masks, seg_ids, start_postions, end_positions, unique_ids) = tuple(x for x in batch)
         tokens = tokens.to(device)
         masks= masks.to(device)
         seg_ids = seg_ids.to(device)
@@ -68,10 +75,12 @@ def main(args):
         pos_ids = torch.tensor(np.arange(tokens.shape[1]), dtype=torch.int64, device=tokens.device)
         start_pos_output, end_pos_output = model(tokens, seg_ids, pos_ids, masks)
         # print(start_pos_output, end_pos_output)
-        start_loss = start_loss_function(start_pos_output, start_postions)
-        end_loss = end_loss_function(end_pos_output, end_positions)
-        loss = (torch.mean(start_loss) + torch.mean(end_loss)) / 2.0
-        return loss, start_pos_output, end_pos_output, example_index
+        if is_training:
+            start_loss = start_loss_function(start_pos_output, start_postions)
+            end_loss = end_loss_function(end_pos_output, end_positions)
+            loss = (torch.mean(start_loss) + torch.mean(end_loss)) / 2.0
+        else: loss = None
+        return loss, start_pos_output, end_pos_output, unique_ids
 
     def evaluate(model: QAModel, dev_path: str, encoder_config: dict, train_config: dict):
         print("======================START EVALUATION======================")
@@ -80,22 +89,24 @@ def main(args):
         tokenizer = SentencePieceTokenizer(args.vocab_model)
         devloader = DataLoader(dataset=dev, sampler=SequentialSampler(dev),
                                batch_size=train_config["batch_size"], num_workers=4)
-        example_index_list = []
+        unique_id_list = []
         start_list = []
         end_list = []
         with torch.no_grad():
             for i, batch in enumerate(devloader):
-                _, start, end, example_index = process_data(i, batch)
-                example_index_list.append(example_index)
+                #print(len(batch[0]))
+                _, start, end, unique_ids = process_data(i, batch, False)
+                unique_id_list.append(unique_ids)
                 start_list.append(start.cpu())
                 end_list.append(end.cpu())
-        example_index_list = np.concatenate(example_index_list)
+        unique_id_list = np.concatenate(unique_id_list)
         start_list = np.concatenate(start_list)
         end_list = np.concatenate(end_list)
         all_results = []
-        for i, example_idx in enumerate(example_index_list):
-            feature = dev_features[example_idx]
-            unique_id = int(feature.unique_id)
+        #print(len(unique_id_list))
+        for i, unique_id in enumerate(unique_id_list):
+            #print(unique_id)
+            #print("%d, %d" %(i, unique_id))
             all_results.append(RawResult(
                 unique_id=unique_id,
                 start_logits=start_list[i],
@@ -110,7 +121,7 @@ def main(args):
         cnt = 0
         total = 0.0
         for i, batch in enumerate(trainloader):
-            loss, _, _, _ = process_data(i, batch)
+            loss, _, _, _ = process_data(i, batch, True)
             loss.backward()
             optimizer.step()
             lr_scheduler.step()
@@ -123,7 +134,7 @@ def main(args):
         total = 0.0
         for i, batch in enumerate(evalloader):
             with torch.no_grad():
-                loss, _, _, _ = process_data(i, batch)
+                loss, _, _, _ = process_data(i, batch, True)
                 cnt += 1
                 total += loss.item()
         print("VALID OF EPOCH %d LOSS IS %.5f" % (epoch, total / cnt))

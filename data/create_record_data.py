@@ -1,8 +1,8 @@
 import collections
 import json
 import argparse
-from . import tokenization
 import pickle
+from . import tokenization
 
 #create ReCoRD dataset
 
@@ -118,10 +118,14 @@ def read_record_examples(input_file, is_training):
         for qa in entry["qas"]:
             qas_id = qa["id"]
             question_text = qa["query"]
-            answer = qa["answers"][0]
-            orig_answer_text = answer["text"]
-            start_position = char_to_word_offset[answer['start']]
-            end_position = char_to_word_offset[answer['end']]
+            start_position = None
+            end_position = None
+            orig_answer_text = None
+            if is_training:
+                answer = qa["answers"][0]
+                orig_answer_text = answer["text"]
+                start_position = char_to_word_offset[answer['start']]
+                end_position = char_to_word_offset[answer['end']]
             example = RecordExample(
                 qas_id=qas_id,
                 question_text=question_text,
@@ -236,6 +240,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
                     doc_offset = len(query_tokens) + 2
                     start_position = tok_start_position - doc_start + doc_offset
                     end_position = tok_end_position - doc_start + doc_offset
+            #print(unique_id)
             feature = InputFeatures(
                 unique_id=unique_id,
                 example_index=example_index,
