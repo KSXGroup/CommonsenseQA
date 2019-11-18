@@ -117,7 +117,7 @@ def get_final_text(pred_text, orig_text, do_lower_case, verbose_logging=False):
         ns_chars = []
         ns_to_s_map = collections.OrderedDict()
         for (i, c) in enumerate(text):
-            if c == " ":
+            if c == " " or c == "\xc2\xa0" or c == '\xa0' or c == '\xad':
                 continue
             ns_to_s_map[len(ns_chars)] = i
             ns_chars.append(c)
@@ -144,8 +144,8 @@ def get_final_text(pred_text, orig_text, do_lower_case, verbose_logging=False):
 
     if len(orig_ns_text) != len(tok_ns_text):
         if verbose_logging:
-            print("Length not equal after stripping spaces: '%s' vs '%s'",
-                        orig_ns_text, tok_ns_text)
+            print("Length not equal after stripping spaces: '%s' vs '%s'" % (orig_ns_text, tok_ns_text))
+            #print("SUCK %s, %s" % (orig_text, tok_text))
         return orig_text
 
     # We then project the characters in `pred_text` back to `orig_text` using
@@ -302,10 +302,12 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
                 orig_doc_start = feature.token_to_orig_map[pred.start_index]
                 orig_doc_end = feature.token_to_orig_map[pred.end_index]
                 orig_tokens = example.doc_tokens[orig_doc_start:(orig_doc_end + 1)]
-                print("tok_tokens: " + str(tok_tokens))
-                print("origin_tokens: " + str(orig_tokens))
-                tok_text = ''.join(tok_tokens).replace(tokenizer.SPIECE_UNDERLINE, ' ').strip()
-                #tok_text = tokenizer.convert_tokens_to_string(tok_tokens)
+                #print("tok_tokens: " + str(tok_tokens))
+                #print("origin_tokens: " + str(orig_tokens))
+                tok_text = tokenizer.convert_tokens_to_string(tok_tokens)
+                tmp_token = BasicTokenizer(do_lower_case)
+                tok_tokens = tmp_token.tokenize(tok_text)
+                tok_text = ' '.join(tok_tokens).strip()
 
                 # Clean whitespace
                 tok_text = tok_text.strip()

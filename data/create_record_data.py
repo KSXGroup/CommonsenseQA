@@ -333,7 +333,11 @@ def main(args):
     with open(args.save_path + args.file_name + "_example.pkl", "wb") as f:
         pickle.dump(examples, f)
 
-    feature = convert_examples_to_features(examples, tokenizer, 512, 512, 256, True)
+    is_training = False
+    if args.type == "train":
+        is_training = True
+
+    feature = convert_examples_to_features(examples, tokenizer, 512, 512, 256, is_training)
 
     with open(args.save_path + args.file_name + "_feature.pkl", "wb") as f:
         pickle.dump(feature, f)
@@ -345,6 +349,7 @@ if __name__ == '__main__':
     parser.add_argument("--vocab_model", default="vocab.model", type=str)
     parser.add_argument("--save_path", default="dataset/record/", type=str)
     parser.add_argument("--file_name", default="train", type=str)
+    parser.add_argument("--type", default="train", type=str)
     args = parser.parse_args()
     main(args)
 
