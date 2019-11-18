@@ -6,7 +6,7 @@
     "lr": 1e-3,
     "lr_decay": 0.9,
     "warm_up_proportion": 0,
-    "epoch": 0
+    "epoch": 50
   },
   "encoder": {
     "embedding_size": 128,

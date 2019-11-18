@@ -26,19 +26,19 @@ def main(args):
     model.to(device)
     #print(list(model.named_parameters()))
     #return
-    #train, eval = load_record_dataset(args.train_file, encoder_config["max_sequence_length"],
-    #                                  train_config["train_proportion"])
-    train = None
-    eval = None
-    #trainloader = DataLoader(dataset=train, sampler= RandomSampler(train),
-    #                        batch_size=train_config["batch_size"], num_workers=4)
+    train, eval = load_record_dataset(args.train_file, encoder_config["max_sequence_length"],
+                                      train_config["train_proportion"])
+    #train = None
+    #eval = None
+    trainloader = DataLoader(dataset=train, sampler= RandomSampler(train),
+                            batch_size=train_config["batch_size"], num_workers=4)
 
-    #evalloader = DataLoader(dataset=eval, sampler=RandomSampler(eval),
-    #                        batch_size=train_config["batch_size"], num_workers=4)
+    evalloader = DataLoader(dataset=eval, sampler=RandomSampler(eval),
+                            batch_size=train_config["batch_size"], num_workers=4)
 
-    trainloader = None
+    #trainloader = None
 
-    evalloader = None
+    #evalloader = None
 
     param_optimizer = list(model.named_parameters())
     no_decay = ['bias', 'layer_norm.bias', 'layer_norm.weight']
