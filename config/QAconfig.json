@@ -8,8 +8,8 @@
     "epoch": 2
   },
   "encoder": {
-    "pretrain_model_path": "ALBERT_NEW/pretrained_model/albert-base-v2-pytorch_model.bin",
-    "config_path": "ALBERT_NEW/pretrained_model/albert-base-v2-config.json"
+    "pretrain_model_path": "ALBERT/pretrained_model/albert-base-v2-pytorch_model.bin",
+    "config_path": "ALBERT/pretrained_model/albert-base-v2-config.json"
   },
   "decoder": {
     "num_label": 2,
