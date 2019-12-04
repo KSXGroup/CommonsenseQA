@@ -1,29 +1,22 @@
 {
   "train": {
-    "train_proportion": 0.8,
-    "batch_size": 32,
+    "train_proportion": 0.97,
+    "batch_size": 8,
     "weight_decay": 0.0,
-    "lr": 1e-3,
-    "lr_decay": 0.9,
+    "lr": 3e-5,
     "warm_up_proportion": 0,
-    "epoch": 50
+    "epoch": 2
   },
   "encoder": {
-    "embedding_size": 128,
-    "hidden_size": 384,
-    "hidden_layer": 1,
-    "attention_head": 12,
-    "intermediate_size": 1536,
-    "max_sequence_length": 512,
-    "vocab_size": 32000,
-    "layer_norm_eps": 1e-12,
-    "output_all_hidden": false,
-    "share_type": "shared_attention"
+    "pretrain_model_path": "ALBERT_NEW/pretrained_model/albert-base-v2-pytorch_model.bin",
+    "config_path": "ALBERT_NEW/pretrained_model/albert-base-v2-config.json"
   },
   "decoder": {
-    "num_label": 2
+    "num_label": 2,
+    "ner_label": 3
   },
   "prediction": {
+    "evaluate_batch_size": 256,
     "max_answer_length": 30,
     "do_lower_case": false,
     "nbest": 5
