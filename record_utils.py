@@ -26,6 +26,7 @@ class QADataset(Dataset):
         self.end_positions = np.zeros((self.length, ), dtype=np.int32)
         self.ner_label = np.ones((self.length, seq_len), dtype=np.int32) * -1
         self.unique_id = np.zeros((self.length, ), dtype=np.int32)
+        self.divide_pos = np.zeros((self.length,), dtype=np.int32)
 
         print("loading %d features" % self.length)
         print(len(self.ner_label))
@@ -34,6 +35,10 @@ class QADataset(Dataset):
             self.tokens[i] = feature.input_ids
             self.masks[i] = feature.input_mask
             self.seg_ids[i] = feature.segment_ids
+            for j, id in enumerate(self.seg_ids[i]):
+                if id != 0:
+                    self.divide_pos[i] = j
+                    break
             if feature.start_position != None:
                 self.start_positions[i] = feature.start_position
             else:
@@ -69,7 +74,8 @@ class QADataset(Dataset):
                 torch.tensor(self.start_positions[item], dtype=torch.int64),
                 torch.tensor(self.end_positions[item], dtype=torch.int64),
                 torch.tensor(self.ner_label[item], dtype=torch.int64),
-                self.unique_id[item])
+                self.unique_id[item],
+                self.divide_pos[item])
 
 class RawResult:
     def __init__(self, unique_id:int, start_logits, end_logits):

@@ -5,18 +5,19 @@
     "weight_decay": 0.0,
     "lr": 3e-5,
     "warm_up_proportion": 0,
-    "epoch": 2
+    "epoch": 4
   },
   "encoder": {
     "pretrain_model_path": "ALBERT/pretrained_model/albert-base-v2-pytorch_model.bin",
     "config_path": "ALBERT/pretrained_model/albert-base-v2-config.json"
   },
   "decoder": {
+    "reasoning_hop": 3,
     "num_label": 2,
     "ner_label": 3
   },
   "prediction": {
-    "evaluate_batch_size": 256,
+    "evaluate_batch_size": 128,
     "max_answer_length": 30,
     "do_lower_case": false,
     "nbest": 5

@@ -5,7 +5,8 @@ import os
 import numpy as np
 from torch.nn import CrossEntropyLoss
 from data.tokenization import FullTokenizer
-from record_utils import load_record_dataset, load_record_devset, write_predictions, RawResult, InputFeatures
+from record_utils import load_record_dataset, load_record_devset, \
+    write_predictions, RawResult, InputFeatures, RecordExample
 from ALBERT.model.optimization import LAMB, get_linear_schedule_with_warmup
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from model import QAModel
@@ -24,9 +25,17 @@ def main(args):
     with open(encoder_config_path, "r") as f:
         encoder_config = json.loads(f.read())
     model = QAModel(encoder_model_path, encoder_config, decoder_config)
-    device = torch.device('cuda:1')
+    device = torch.device('cuda:0')
     model.to(device)
-
+    #
+    # input_token = torch.LongTensor(np.random.randint(0, 30000, (4, 512)))
+    # input_segment = torch.LongTensor(np.random.randint(0, 1, (4, 512)))
+    # input_pos = torch.LongTensor(np.repeat(np.expand_dims(np.arange(512), 0), 4, axis=0))
+    # input_mask = torch.LongTensor(np.random.randint(0, 1, (4, 512)))
+    # divide = np.random.randint(100,200, (4,))
+    # res = model(input_token, input_segment, input_pos, input_mask, divide)
+    # print(res[0], res[1])
+    # exit(0)
     # print(list(model.named_parameters()))
     # return
     train, eval = load_record_dataset(args.train_file, encoder_config["max_position_embeddings"],
@@ -71,7 +80,7 @@ def main(args):
     # ======================================================================================================================
 
     def process_data(i, batch, is_training):
-        (tokens, masks, seg_ids, start_postions, end_positions, ner_label, unique_ids) = tuple(x for x in batch)
+        (tokens, masks, seg_ids, start_postions, end_positions, ner_label, unique_ids, divide_pos) = tuple(x for x in batch)
         tokens = tokens.to(device)
         masks = masks.to(device)
         seg_ids = seg_ids.to(device)
@@ -79,7 +88,7 @@ def main(args):
         end_positions = end_positions.to(device)
         ner_label = ner_label.to(device)
         pos_ids = torch.tensor(np.arange(tokens.shape[1]), dtype=torch.int64, device=tokens.device)
-        start_pos_output, end_pos_output, ner_output = model(tokens, seg_ids, pos_ids, masks)
+        start_pos_output, end_pos_output, ner_output = model(tokens, seg_ids, pos_ids, masks, divide_pos)
         # start_pos_output -> [Batch, SeqLen]
         # end_pos_output -> [Batch, SeqLen]
         # ner_output -> [Batch, SeqLen, 3]
@@ -137,7 +146,7 @@ def main(args):
         total = 0.0
         for i, batch in enumerate(trainloader):
             qa_loss, ner_loss, _, _, _ = process_data(i, batch, True)
-            loss = (qa_loss + ner_loss)
+            loss = (qa_loss + 2 * ner_loss)
             loss.backward()
             optimizer.step()
             lr_scheduler.step()

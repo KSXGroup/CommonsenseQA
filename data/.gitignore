@@ -1,4 +1,6 @@
 graph.txt
+*.pkl
+*.json
 record/
 squad/
 __pycache__/
