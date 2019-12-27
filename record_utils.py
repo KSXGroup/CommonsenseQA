@@ -4,8 +4,10 @@ import torch
 import pickle
 import collections
 import json
+import random
 import numpy as np
 from typing import List
+from data.knowlege_graph_utils import *
 from create_record_data import InputFeatures, RecordExample
 from torch.utils.data.dataset import Dataset
 from data.tokenization import BasicTokenizer
@@ -15,6 +17,30 @@ DEV = "dev"
 FEATURE = "_feature"
 EXAMPLE = "_example"
 PKL = ".pkl"
+
+class RelationDataset(Dataset):
+    def __init__(self, example_list:List, seq_len:int):
+        self.length = len(example_list)
+        self.seq_len = seq_len
+        self.data = example_list
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, item):
+        example = self.data[item]
+        token = example.tokens
+        label = example.label
+        mask = np.ones(len(token))
+        itoken = np.zeros((self.seq_len,), dtype=np.int32)
+        ilabel = np.ones((self.seq_len,), dtype=np.int32) * -1
+        itoken[:len(token)] = token
+        ilabel[:len(label)] = label
+        imask = np.zeros((self.seq_len,), dtype=np.int32)
+        imask[:len(mask)] = 1
+        return (torch.tensor(itoken, dtype=torch.int64),
+                torch.tensor(ilabel, dtype=torch.int64),
+                torch.tensor(imask, dtype=torch.int64))
 
 class QADataset(Dataset):
     def __init__(self, feature_list:List[InputFeatures], seq_len:int, is_training=True):
@@ -27,6 +53,9 @@ class QADataset(Dataset):
         self.ner_label = np.ones((self.length, seq_len), dtype=np.int32) * -1
         self.unique_id = np.zeros((self.length, ), dtype=np.int32)
         self.divide_pos = np.zeros((self.length,), dtype=np.int32)
+        self.entity_start = []
+        self.entity_end = []
+        self.entity_node_index = []
 
         print("loading %d features" % self.length)
         print(len(self.ner_label))
@@ -35,6 +64,10 @@ class QADataset(Dataset):
             self.tokens[i] = feature.input_ids
             self.masks[i] = feature.input_mask
             self.seg_ids[i] = feature.segment_ids
+            #self.entity_start.append(feature.query_start_list)
+            #self.entity_end.append(feature.query_end_list)
+            #self.entity_node_index.append(feature.entity_node_index)
+
             for j, id in enumerate(self.seg_ids[i]):
                 if id != 0:
                     self.divide_pos[i] = j
@@ -52,9 +85,10 @@ class QADataset(Dataset):
             if is_training:
                 for j, qs in enumerate(feature.query_start_list):
                     #print(str(feature.doc_span_index)+"," + str(qs))
-                    self.ner_label[i][qs] = 1
-                    for k in range(qs+1, feature.query_end_list[j] + 1):
-                        self.ner_label[i][k] = 2
+                    self.ner_label[i][qs] = 2
+                    for k in range(qs+1, feature.query_end_list[j]):
+                        self.ner_label[i][k] = 1
+                    self.ner_label[i][feature.query_end_list[j]] = 3
 
                 for j in range(np.sum(feature.input_mask)):
                     if self.ner_label[i][j] == -1:
@@ -74,8 +108,8 @@ class QADataset(Dataset):
                 torch.tensor(self.start_positions[item], dtype=torch.int64),
                 torch.tensor(self.end_positions[item], dtype=torch.int64),
                 torch.tensor(self.ner_label[item], dtype=torch.int64),
-                self.unique_id[item],
-                self.divide_pos[item])
+                self.unique_id[item],self.divide_pos[item],
+                self.entity_start, self.entity_end, self.entity_node_index)
 
 class RawResult:
     def __init__(self, unique_id:int, start_logits, end_logits):
@@ -83,12 +117,26 @@ class RawResult:
         self.start_logits = start_logits
         self.end_logits = end_logits
 
+def load_relation_dataset(path:str='data/relation_data.pkl', max_len:int = 512 ,train_prop:float = 0.9):
+    with open(path, "rb") as f:
+        l = pickle.load(f)
+        random.shuffle(l)
+        dlen = int(len(l) * train_prop)
+    return RelationDataset(l[:dlen], max_len), RelationDataset(l[dlen:], max_len)
+
+def load_relation_prediction_dataset(path:str='data/relation_prediction_data.pkl', max_len:int = 512 ,train_prop:float = 0.9):
+    with open(path, "rb") as f:
+        l = pickle.load(f)
+        random.shuffle(l)
+        dlen = int(len(l) * train_prop)
+    return RelationDataset(l[:dlen], max_len), RelationDataset(l[dlen:], max_len)
 
 def load_record_dataset(path:str, max_len:int, train_prop:float) -> (QADataset,QADataset):
     with open(path + TRAIN + FEATURE + PKL, "rb") as f:
         feature_list = pickle.load(f)
     dlen = int(len(feature_list) * train_prop)
     return QADataset(feature_list[:dlen], max_len, True), QADataset(feature_list[dlen:], max_len)
+    #return QADataset(feature_list[:100], max_len, True), QADataset(feature_list[:100], max_len)
 
 
 def load_record_devset(path:str, max_len:int) -> (QADataset, List[InputFeatures], List[RecordExample]):
@@ -99,7 +147,7 @@ def load_record_devset(path:str, max_len:int) -> (QADataset, List[InputFeatures]
     print(len(feature_list))
     print(len(example_list))
     #input("========================WAITING=========================")
-    return QADataset(feature_list, max_len, False), feature_list, example_list
+    return QADataset(feature_list, max_len, True), feature_list, example_list
 
 
 def _get_best_indexes(logits, n_best_size):

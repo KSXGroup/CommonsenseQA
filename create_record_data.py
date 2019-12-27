@@ -2,6 +2,7 @@ import collections
 import json
 import argparse
 import pickle
+from data.knowlege_graph_utils import buid_graph, get_kg_node
 from data import tokenization
 
 #create ReCoRD dataset
@@ -13,6 +14,7 @@ class RecordExample(object):
                  doc_tokens,
                  query_start_list=None,
                  query_end_list=None,
+                 entity_node_index=None,
                  orig_answer_text=None,
                  start_position=None,
                  end_position=None
@@ -23,6 +25,7 @@ class RecordExample(object):
         self.query_start_list = query_start_list
         self.query_end_list = query_end_list
         self.orig_answer_text = orig_answer_text
+        self.entity_node_index = entity_node_index
         self.start_position = start_position
         self.end_position = end_position
 
@@ -53,6 +56,7 @@ class InputFeatures(object):
                  input_ids,
                  input_mask,
                  segment_ids,
+                 entity_node_index=None,
                  query_start_list=None,
                  query_end_list=None,
                  start_position=None,
@@ -69,10 +73,12 @@ class InputFeatures(object):
         self.segment_ids = segment_ids
         self.query_start_list = query_start_list
         self.query_end_list = query_end_list
+        self.entity_node_index = entity_node_index
         self.start_position = start_position
         self.end_position = end_position
 
 def read_record_examples(input_file, is_training):
+    node_to_idx, rel_to_idx, graph = buid_graph()
     with open(input_file, 'r') as reader:
         input_data = json.load(reader)["data"]
 
@@ -104,14 +110,23 @@ def read_record_examples(input_file, is_training):
         entities = paragraph["entities"]
         query_start_list = []
         query_end_list = []
+        entity_node_idx = []
         for query in entities:
             # print(len(char_to_word_offset))
             # print(query["start"])
             # print(query["end"])
             if query["start"] >= len(char_to_word_offset) or query["end"] >= len(char_to_word_offset):
                 continue
-            query_start_list.append(char_to_word_offset[query["start"]])
-            query_end_list.append(char_to_word_offset[query["end"]])
+            st = query["start"]
+            ed = query["end"]
+            kg_node = get_kg_node(paragraph_text[st:ed+1], graph)
+            if kg_node is None:
+                entity_node_idx.append(-1)
+            else:
+                entity_node_idx.append(node_to_idx[kg_node])
+            query_start_list.append(char_to_word_offset[st])
+            query_end_list.append(char_to_word_offset[ed])
+
         if not "qas" in entry:
             continue
         for qa in entry["qas"]:
@@ -134,6 +149,7 @@ def read_record_examples(input_file, is_training):
                 query_end_list=query_end_list,
                 start_position=start_position,
                 end_position=end_position,
+                entity_node_index=entity_node_idx
             )
             examples.append(example)
     return examples
@@ -241,6 +257,7 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
             end_position = None
             example.query_start_list = []
             example.query_end_list  = []
+            entity_node_index = []
             if is_training:
                 # For training, if our document chunk does not contain an annotation
                 # we throw it out, since there is nothing to predict.
@@ -267,10 +284,12 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
                     if out_of_span:
                         example.query_start_list.append(0)
                         example.query_end_list.append(0)
+                        entity_node_index.append(-1)
                     else:
                         doc_offset = len(query_tokens) + 2
                         example.query_start_list.append(tok_estart[idx] - doc_start + doc_offset)
                         example.query_end_list.append(tok_eend[idx] - doc_start + doc_offset)
+                        entity_node_index.append(example.entity_node_index[idx])
 
             #print(unique_id)
             feature = InputFeatures(
@@ -286,7 +305,8 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
                 input_mask=input_mask,
                 segment_ids=segment_ids,
                 start_position=start_position,
-                end_position=end_position)
+                end_position=end_position,
+                entity_node_index=entity_node_index)
             unique_id += 1
             feature_list.append(feature)
     print()
@@ -370,11 +390,7 @@ def main(args):
     with open(args.save_path + args.file_name + "_example.pkl", "wb") as f:
         pickle.dump(examples, f)
 
-    is_training = False
-    if args.type == "train":
-        is_training = True
-
-    feature = convert_examples_to_features(examples, tokenizer, 512, 512, 256, is_training)
+    feature = convert_examples_to_features(examples, tokenizer, 512, 512, 256, True)
 
     with open(args.save_path + args.file_name + "_feature.pkl", "wb") as f:
         pickle.dump(feature, f)

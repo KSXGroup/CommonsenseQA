@@ -2,6 +2,7 @@ import argparse
 import json
 import torch
 import os
+import tqdm
 import numpy as np
 from torch.nn import CrossEntropyLoss
 from data.tokenization import FullTokenizer
@@ -25,8 +26,9 @@ def main(args):
     with open(encoder_config_path, "r") as f:
         encoder_config = json.loads(f.read())
     model = QAModel(encoder_model_path, encoder_config, decoder_config)
-    device = torch.device('cuda:0')
+    device = torch.device('cuda:1')
     model.to(device)
+    #model = torch.nn.DataParallel(model, device_ids=[1])
     #
     # input_token = torch.LongTensor(np.random.randint(0, 30000, (4, 512)))
     # input_segment = torch.LongTensor(np.random.randint(0, 1, (4, 512)))
@@ -76,30 +78,40 @@ def main(args):
     start_loss_function = CrossEntropyLoss()
     end_loss_function = CrossEntropyLoss()
     ner_loss_function = CrossEntropyLoss(ignore_index=-1)
-
     # ======================================================================================================================
 
     def process_data(i, batch, is_training):
-        (tokens, masks, seg_ids, start_postions, end_positions, ner_label, unique_ids, divide_pos) = tuple(x for x in batch)
+        (tokens, masks, seg_ids, start_postions, end_positions, ner_label, unique_ids,
+         divide_pos, entity_start, entity_end, entity_node_index) = tuple(x for x in batch)
         tokens = tokens.to(device)
         masks = masks.to(device)
         seg_ids = seg_ids.to(device)
         start_postions = start_postions.to(device)
         end_positions = end_positions.to(device)
         ner_label = ner_label.to(device)
-        pos_ids = torch.tensor(np.arange(tokens.shape[1]), dtype=torch.int64, device=tokens.device)
-        start_pos_output, end_pos_output, ner_output = model(tokens, seg_ids, pos_ids, masks, divide_pos)
+        pos_ids = torch.tensor(np.arange(tokens.shape[1]), dtype=torch.int64, device=tokens.device)#\
+            #.unsqueeze(dim=0)\
+            #.repeat((train_config["batch_size"], 1))
+        start_pos_output, end_pos_output, ner_output = model(tokens, seg_ids, pos_ids, masks, divide_pos, entity_start,
+                                                             entity_end, entity_node_index)
         # start_pos_output -> [Batch, SeqLen]
         # end_pos_output -> [Batch, SeqLen]
         # ner_output -> [Batch, SeqLen, 3]
         # print(start_pos_output, end_pos_output)
         ner_output = torch.reshape(ner_output, (ner_output.shape[0] * ner_output.shape[1], -1))
+        start_sig = (ner_label == 2).float()
+        end_sig = (ner_label == 3).float()
         ner_label = torch.reshape(ner_label, (ner_label.shape[0] * ner_label.shape[1],))
+        ner_label[ner_label == 3] = 1
+        start_sig = start_sig.to(start_pos_output.device)
+        end_sig = end_sig.to(end_pos_output.device)
         if is_training:
-            start_loss = start_loss_function(start_pos_output, start_postions)
-            end_loss = end_loss_function(end_pos_output, end_positions)
-            ner_loss = ner_loss_function(ner_output, ner_label)
-            qa_loss = (torch.mean(start_loss) + torch.mean(end_loss)) / 2.0
+            start_loss = start_loss_function(start_pos_output + start_sig, start_postions)#.mean()
+            end_loss = end_loss_function(end_pos_output + end_sig, end_positions)#.mean()
+            ner_loss = ner_loss_function(ner_output, ner_label)#.mean()
+            start_loss = start_loss_function(start_pos_output, start_postions)#.mean()
+            end_loss = end_loss_function(end_pos_output, end_positions)#.mean()
+            qa_loss = (start_loss + end_loss) / 2.0
         else:
             qa_loss = None
             ner_loss = None
@@ -144,9 +156,10 @@ def main(args):
     for epoch in range(train_config["epoch"]):
         cnt = 0
         total = 0.0
-        for i, batch in enumerate(trainloader):
+        for i, batch in enumerate(tqdm.tqdm(trainloader)):
             qa_loss, ner_loss, _, _, _ = process_data(i, batch, True)
             loss = (qa_loss + 2 * ner_loss)
+            #loss = qa_loss
             loss.backward()
             optimizer.step()
             lr_scheduler.step()
@@ -158,9 +171,14 @@ def main(args):
                     "EPOCH %d/%d, BATCH %d, QA_LOSS: %.5f, NER_LOSS: %.5f, AVERAGE_LOSS: %.5f, TOTAL_AVERAGE_LOSS: %.5f" %
                     (
                     epoch + 1, train_config["epoch"], i + 1, qa_loss.item(), ner_loss.item(), loss.item(), total / cnt))
+                # print(
+                #     "EPOCH %d/%d, BATCH %d, QA_LOSS: %.5f, NER_LOSS: %.5f, AVERAGE_LOSS: %.5f, TOTAL_AVERAGE_LOSS: %.5f" %
+                #     (
+                #         epoch + 1, train_config["epoch"], i + 1, qa_loss.item(), 0, loss.item(),
+                #         total / cnt))
         cnt = 0
         total = 0.0
-        for i, batch in enumerate(evalloader):
+        for i, batch in enumerate(tqdm.tqdm(evalloader)):
             with torch.no_grad():
                 qa_loss, ner_loss, _, _, _ = process_data(i, batch, True)
                 cnt += 1

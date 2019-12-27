@@ -413,5 +413,6 @@ def _is_punctuation(char):
   return False
 
 if __name__ == "__main__":
-  f = FullTokenizer(vocab_file=None, spm_model_file="../ALBERT/pretrained_model/albert-base-v2-spiece.model")
-  print(f.tokenize("Euro 2016"))
+  f = FullTokenizer(vocab_file=None, spm_model_file="../ALBERT/pretrained_model/albert-base-v2-spiece.model",
+                    do_lower_case=True)
+  print(f.tokenize("a related to b"))

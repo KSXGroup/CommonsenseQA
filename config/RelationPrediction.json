@@ -3,12 +3,12 @@
     "train_proportion": 0.97,
     "batch_size": 8,
     "weight_decay": 0.0,
-    "lr": 3e-5,
-    "warm_up_proportion": 0,
+    "lr": 5e-5,
+    "warm_up_proportion": 0.1,
     "epoch": 5
   },
   "encoder": {
-    "pretrain_model_path": "result/model_relation_prediction_pretrained.pkl",
+    "pretrain_model_path": "result/model_is_related_pretrained.pkl",
     "config_path": "ALBERT/pretrained_model/albert-base-v2-config.json"
   },
   "decoder": {
