@@ -26,7 +26,7 @@ def main(args):
     with open(encoder_config_path, "r") as f:
         encoder_config = json.loads(f.read())
     model = QAModel(encoder_model_path, encoder_config, decoder_config)
-    device = torch.device('cuda:1')
+    device = torch.device('cuda:0')
     model.to(device)
     #model = torch.nn.DataParallel(model, device_ids=[1])
     #
